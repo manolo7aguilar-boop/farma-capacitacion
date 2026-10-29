@@ -9,8 +9,8 @@
 h1{font-size:1.5rem;margin:.2em 0}h2{font-size:1.15rem;margin:.3em 0;line-height:1.4}
 .muted{color:var(--muted)}
 .top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:16px}
-.brand{background:none;border:0;color:var(--fg);font-weight:700;font-size:1rem;cursor:pointer;padding:0;display:flex;align-items:center;gap:8px}
-.brand img.logo-main{height:44px;width:auto;max-width:220px;display:block;border-radius:4px;object-fit:contain}
+.brand{background:none;border:0;color:var(--fg);font-weight:700;font-size:1rem;cursor:pointer;padding:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.brand img.logo-main{height:52px;width:auto;max-width:100%;flex:1;display:block;border-radius:6px;object-fit:contain}
 .brand img.logo-mascot,.mascot{height:40px;width:40px;object-fit:contain;display:block;border-radius:50%;background:#fff;border:2px solid var(--line)}
 .stats{display:flex;gap:12px;font-weight:600}
 .profile{width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -67,8 +67,8 @@ input{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);backgr
 .admin .tr.head{font-weight:700;background:transparent;border-style:dashed}
 .admin .person{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
 .admin .person:last-child{border-bottom:0}
-.gate-logos{display:flex;align-items:center;gap:14px;justify-content:center;margin:8px 0 4px}
-.gate-logos img.logo-main{height:72px;width:auto;max-width:280px;border-radius:6px;object-fit:contain}
+.gate-logos{display:flex;align-items:center;gap:12px;justify-content:center;margin:4px 0 8px;width:100%}
+.gate-logos img.logo-main{height:auto;width:100%;max-width:100%;max-height:110px;border-radius:10px;object-fit:contain;flex:1}
 .gate-logos img.logo-mascot{height:64px;width:64px;border-radius:50%;object-fit:contain;background:#fff;border:3px solid var(--acc)}
 .home-hero{display:flex;align-items:center;gap:12px}
 .home-hero img{height:72px;width:72px;border-radius:50%;object-fit:contain;background:#fff;border:3px solid var(--line);flex-shrink:0}
