@@ -91,7 +91,7 @@ export const m3Lessons: Lesson[] = [
     id: 206, title: 'Señales de alarma → refiere al médico',
     tip: { title: 'Cuándo no es solo mostrador', body: [
       '**Refiere al médico / urgencias** ante: dificultad respiratoria, dolor de pecho, labios morados, sangrado, heces negras, fiebre alta persistente, hinchazón de cara, ideación de daño, dolor de pierna fuerte con anticonceptivos, etc.',
-      'Puedes ofrecer medidas de soporte (suero, no suspender crónicos solos) **sin retrasar** la derivación.',
+      'Puedes ofrecer medidas de soporte (suero, no suspender crónicos solos) **sin retrasar** referir al médico.',
       'Tu rol: detectar, explicar con calma y **no minimizar**.',
     ]},
     exercises: [
@@ -100,14 +100,14 @@ export const m3Lessons: Lesson[] = [
       mt('m3l6e3', 'Une hallazgo con acción.', [['Ideación de hacerse daño', 'Ayuda inmediata'], ['Resfriado leve 1 día', 'Orientación OTC'], ['Dolor pecho', 'Urgencias']], 'Priorizar.'),
       mc('m3l6e4', 'case', 'Niño con pañal seco muchas horas y diarrea. ¿Qué haces?', ['Loperamida', 'Refiere al médico; ofrece sales mientras tanto', 'Nada'], 1, 'Deshidratación pediátrica.'),
       mc('m3l6e5', 'case', 'Cliente usa salbutamol muchas veces al día. ¿Qué haces?', ['Le vendes dos', 'Asma mal controlada: refiere al médico', 'Ignoras'], 1, 'Mal control.'),
-      mc('m3l6e6', 'choose', 'Ante alarma, tu mensaje es:', ['Calma + derivar ya', 'Minimizar', 'Vender lo que sea'], 0, 'Derivar.'),
-      mc('m3l6e7', 'impulso', 'Mientras derives una diarrea con alarma:', ['No des loperamida a ciegas; hidratación si aplica y médico', 'Antibiótico sin receta', 'Laxante'], 0, 'Soporte seguro.'),
+      mc('m3l6e6', 'choose', 'Ante alarma, tu mensaje es:', ['Calma + refiere al médico ya', 'Minimizar', 'Vender lo que sea'], 0, 'Refiere al médico.'),
+      mc('m3l6e7', 'impulso', 'Mientras refieres al médico una diarrea con alarma:', ['No des loperamida a ciegas; hidratación si aplica y médico', 'Antibiótico sin receta', 'Laxante'], 0, 'Soporte seguro.'),
     ],
   },
   {
     id: 207, title: 'Casos mixtos OTC',
     tip: { title: 'Dolor, gripe, estómago, alergia', body: [
-      'Combina lo aprendido: preguntas → elección segura → impulso aliado → cuándo derivar.',
+      'Combina lo aprendido: preguntas → elección segura → impulso aliado → cuándo refiere al médico.',
       'Evita duplicar paracetamol en antigripales. Spray nasal descongestionante: pocos días. Antihistamínicos sedantes: cuidado si maneja.',
       'Estómago: antiácido ocasional vs IBP; alarmas → médico.',
     ]},

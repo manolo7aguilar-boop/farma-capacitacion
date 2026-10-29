@@ -24,7 +24,7 @@
 18. Hipolipemiantes
 19. Antiagregantes / anticoagulantes (noción de riesgo)
 20. Antiasmáticos / inhaladores
-21. Antidepresivos y ansiolíticos (reconocer + derivar)
+21. Antidepresivos y ansiolíticos (reconocer + refiere al médico)
 22. Anticonceptivos
 23. Antiparasitarios
 24. Suplementos / naturales frecuentes
@@ -47,7 +47,7 @@ Cada familia debe enseñar:
 2. **Principios activos comunes** — nombres genéricos (DCI). Sin marcas locales.
 3. **Cómo se toma / formas frecuentes** — tabletas, jarabe, gotas, crema, inhalador, etc.
 4. **Advertencias clave en mostrador** — lo que hay que preguntar o avisar siempre.
-5. **Cuándo NO recomendar / derivar** — señales de alarma, grupos de riesgo, venta con receta.
+5. **Cuándo NO recomendar / refiere al médico** — señales de alarma, grupos de riesgo, venta con receta.
 6. **Mini-caso de evaluación** — 1 situación de cliente + opciones + feedback.
 
 ### Formato de ficha (para copiar)
@@ -58,7 +58,7 @@ Cada familia debe enseñar:
 - Principios activos comunes (genéricos):
 - Formas frecuentes:
 - Advertencias clave:
-- Derivar / no recomendar si:
+- Refiere al médico / no recomendar si:
 - Mini-caso:
   - Situación:
   - Opciones: A / B / C
