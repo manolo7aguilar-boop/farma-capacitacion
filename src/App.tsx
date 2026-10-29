@@ -68,7 +68,7 @@ function Header({ p, onHome, active, adminOk, onAdmin, onExitAdmin, onLogout }: 
     <header className="top">
       <button className="brand" onClick={() => { onExitAdmin(); onHome(); }}>
         <img className="logo-mascot" src={asset("mascot.jpg")} alt="" />
-        <img className="logo-main" src={asset("logo-farmatodo.jpg")} alt="Farmatodo" />
+        <img className="logo-main" src={asset("logo-farmatodo-v2.jpg")} alt="Farmatodo" />
       </button>
       <div className="stats"><span title="Racha">🔥 {p.streak}</span><span title="XP">⭐ {p.xp} XP</span></div>
       <div className="profile">
@@ -102,7 +102,7 @@ function Gate({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; set
     <main className="card-stack">
       <div className="gate-logos">
         <img className="logo-mascot" src={asset("mascot.jpg")} alt="" />
-        <img className="logo-main" src={asset("logo-farmatodo.jpg")} alt="Farmatodo Farmacias" />
+        <img className="logo-main" src={asset("logo-farmatodo-v2.jpg")} alt="Farmatodo Farmacias" />
       </div>
       <h1>Capacitación Farmatodo</h1>
       <p className="muted">Elige tu perfil para guardar el avance. Gerente y supervisor pueden abrir el panel de administración con PIN.</p>
