@@ -6,6 +6,7 @@ import { useTeam, bumpStreak, isAdminRole, modulePct, overallPct, type Progress,
 
 type View = { s: 'home' } | { s: 'path' } | { s: 'path1' } | { s: 'path3' } | { s: 'lesson'; id: number };
 const pathFor = (id: number) => id >= 200 ? 'path3' as const : id > 100 ? 'path1' as const : 'path' as const;
+const asset = (f: string) => `${import.meta.env.BASE_URL}${f}`;
 
 const md = (t: string) => t.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/).map((x, i) =>
   x.startsWith('**') ? <strong key={i}>{x.slice(2, -2)}</strong> : x.startsWith('*') ? <em key={i}>{x.slice(1, -1)}</em> : x);
@@ -66,8 +67,8 @@ function Header({ p, onHome, active, adminOk, onAdmin, onExitAdmin, onLogout }: 
   return (
     <header className="top">
       <button className="brand" onClick={() => { onExitAdmin(); onHome(); }}>
-        <img className="logo-mascot" src="/mascot.jpg" alt="" />
-        <img className="logo-main" src="/logo-farmatodo.jpg" alt="Farmatodo" />
+        <img className="logo-mascot" src={asset("mascot.jpg")} alt="" />
+        <img className="logo-main" src={asset("logo-farmatodo.jpg")} alt="Farmatodo" />
       </button>
       <div className="stats"><span title="Racha">🔥 {p.streak}</span><span title="XP">⭐ {p.xp} XP</span></div>
       <div className="profile">
@@ -100,8 +101,8 @@ function Gate({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; set
   return (
     <main className="card-stack">
       <div className="gate-logos">
-        <img className="logo-mascot" src="/mascot.jpg" alt="" />
-        <img className="logo-main" src="/logo-farmatodo.jpg" alt="Farmatodo Farmacias" />
+        <img className="logo-mascot" src={asset("mascot.jpg")} alt="" />
+        <img className="logo-main" src={asset("logo-farmatodo.jpg")} alt="Farmatodo Farmacias" />
       </div>
       <h1>Capacitación Farmatodo</h1>
       <p className="muted">Elige tu perfil para guardar el avance. Gerente y supervisor pueden abrir el panel de administración con PIN.</p>
@@ -227,7 +228,7 @@ function Home({ p, current, go }: { p: Progress; current: number; go: (v: View) 
   return (
     <main className="card-stack">
       <div className="home-hero">
-        <img src="/mascot.jpg" alt="Mascota Farmatodo" />
+        <img src={asset("mascot.jpg")} alt="Mascota Farmatodo" />
         <div className="bubble">
           <h1 style={{margin:0}}>¡Hola{p.name ? `, ${p.name}` : ''}! 👋</h1>
           <p className="muted" style={{margin:'6px 0 0'}}>Unos minutos al día y vas a asesorar con más seguridad en mostrador.</p>
@@ -496,7 +497,7 @@ function Player({ id, exit, finish, next }: { id: number; exit: () => void; fini
 
       {phase === 'end' && final && (
         <div className="card-stack center">
-          <>{final.passed && <img className="end-mascot" src="/mascot.jpg" alt="" />}<h1>{final.passed ? '🎉 ¡Lección superada!' : '📚 Casi lo logras'}</h1></>
+          <>{final.passed && <img className="end-mascot" src={asset("mascot.jpg")} alt="" />}<h1>{final.passed ? '🎉 ¡Lección superada!' : '📚 Casi lo logras'}</h1></>
           <div className="grid2">
             <div className="stat"><b>{final.pct}%</b><span>aciertos</span></div>
             <div className="stat"><b>+{xp + final.bonus}</b><span>XP ganado</span></div>
