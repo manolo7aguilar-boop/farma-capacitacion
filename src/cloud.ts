@@ -6,7 +6,7 @@ import { collection, doc, getDoc, getDocs, onSnapshot, runTransaction, serverTim
 import { auth, db } from './firebase';
 import { initProgress, type Progress, type StaffRole } from './store';
 
-export interface UserDoc { uid: string; email: string; name: string; role: StaffRole; region: string | null }
+export interface UserDoc { uid: string; email: string; name: string; role: StaffRole; region: string | null; sucursal: string | null }
 export interface TeamRow { user: UserDoc; progress: Progress }
 
 const cacheKey = (uid: string) => `farma-cloud-progress-${uid}`;
@@ -30,7 +30,7 @@ export function authErrorEs(e: unknown): string {
 export const login = (email: string, pass: string) => signInWithEmailAndPassword(auth!, email.trim(), pass);
 export const logout = () => signOut(auth!);
 
-/** Register + create users/{uid}. First user ever (no meta/bootstrap doc) becomes gerente. */
+/** Register + create users/{uid}. First user ever (no meta/bootstrap doc) becomes admin. */
 export async function register(name: string, email: string, pass: string) {
   const cred = await createUserWithEmailAndPassword(auth!, email.trim(), pass);
   await updateProfile(cred.user, { displayName: name.trim() });
@@ -49,7 +49,7 @@ async function createUserDoc(u: User, name: string) {
     if (first) tx.set(bootRef, { uid: u.uid, createdAt: serverTimestamp() });
     tx.set(userRef, {
       email: u.email ?? '', name: name || u.displayName || u.email || 'Colaborador',
-      role: first ? 'gerente' : 'colaborador', region: null, createdAt: serverTimestamp(),
+      role: first ? 'admin' : 'colaborador', region: null, sucursal: null, createdAt: serverTimestamp(),
     });
   });
 }
@@ -86,7 +86,7 @@ export function useCloud() {
         return;
       }
       const d = snap.data();
-      setMe({ uid, email: d.email, name: d.name, role: d.role, region: d.region ?? null });
+      setMe({ uid, email: d.email, name: d.name, role: d.role, region: d.region ?? null, sucursal: d.sucursal ?? null });
     }, () => setError('No se pudo leer tu perfil. Revisa las reglas de Firestore.'));
     (async () => {
       try {
@@ -120,10 +120,13 @@ export async function loadTeam(me: UserDoc): Promise<TeamRow[]> {
   const [us, ps] = await Promise.all([getDocs(collection(db!, 'users')), getDocs(collection(db!, 'progress'))]);
   const prog = new Map(ps.docs.map(d => [d.id, d.data()]));
   return us.docs
-    .map(d => ({ uid: d.id, email: d.data().email, name: d.data().name, role: d.data().role, region: d.data().region ?? null } as UserDoc))
-    .filter(u => me.role === 'gerente' || u.uid === me.uid || (me.region != null && me.region !== '' && u.region === me.region))
+    .map(d => ({ uid: d.id, email: d.data().email, name: d.data().name, role: d.data().role, region: d.data().region ?? null, sucursal: d.data().sucursal ?? null } as UserDoc))
+    .filter(u => me.role === 'admin' || me.role === 'gerente' || u.uid === me.uid
+      || (me.role === 'supervisor' && !!me.region && u.region === me.region)
+      || (me.role === 'encargado' && !!me.sucursal && u.sucursal === me.sucursal))
     .map(u => ({ user: u, progress: toProgress(prog.get(u.uid), u.name) }));
 }
 
-export const updateUserRole = (uid: string, role: StaffRole, region: string | null) =>
-  updateDoc(doc(db!, 'users', uid), { role, region: region && region.trim() ? region.trim() : null });
+const clean = (v: string | null) => v && v.trim() ? v.trim() : null;
+export const updateUserRole = (uid: string, role: StaffRole, region: string | null, sucursal: string | null) =>
+  updateDoc(doc(db!, 'users', uid), { role, region: clean(region), sucursal: clean(sucursal) });

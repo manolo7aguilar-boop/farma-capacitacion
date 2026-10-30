@@ -9,7 +9,7 @@ import { useCloud, login, logout, register, authErrorEs, loadTeam, updateUserRol
 type View = { s: 'home' } | { s: 'path' } | { s: 'path1' } | { s: 'path3' } | { s: 'lesson'; id: number };
 const pathFor = (id: number) => id >= 200 ? 'path3' as const : id > 100 ? 'path1' as const : 'path' as const;
 const asset = (f: string) => `${import.meta.env.BASE_URL}${f}`;
-const roleEs: Record<StaffRole, string> = { colaborador: 'colaborador', supervisor: 'supervisor', gerente: 'gerente' };
+const roleEs: Record<StaffRole, string> = { admin: 'Administrador del sistema', gerente: 'Gerente', supervisor: 'Supervisor', encargado: 'Encargado de sucursal', colaborador: 'Colaborador' };
 
 const md = (t: string) => t.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/).map((x, i) =>
   x.startsWith('**') ? <strong key={i}>{x.slice(2, -2)}</strong> : x.startsWith('*') ? <em key={i}>{x.slice(1, -1)}</em> : x);
@@ -75,7 +75,7 @@ function Header({ p, onHome, me, adminOk, onAdmin, onExitAdmin, onLogout }: {
       </button>
       <div className="stats"><span title="Racha">🔥 {p.streak}</span><span title="XP">⭐ {p.xp} XP</span></div>
       <div className="profile">
-        <span>👤 {me.name} · {roleEs[me.role]}{me.region ? ` · ${me.region}` : ''}</span>
+        <span>👤 {me.name} · {roleEs[me.role]}{me.region ? ` · ${me.region}` : ''}{me.sucursal ? ` · ${me.sucursal}` : ''}</span>
         {isAdminRole(me.role) && (adminOk
           ? <button className="btn small ghost" onClick={onExitAdmin}>Vista colaborador</button>
           : <button className="btn small" onClick={onAdmin}>Panel admin</button>)}
@@ -145,7 +145,7 @@ function Admin({ me }: { me: UserDoc }) {
   return (
     <main className="card-stack admin">
       <h1>Panel administrador</h1>
-      <p className="muted">{me.role === 'gerente' ? 'Vista de toda la cadena.' : me.region ? `Vista de tu región: ${me.region}.` : 'Aún no tienes región asignada; pide al gerente que te asigne una.'}</p>
+      <p className="muted">{me.role === 'admin' || me.role === 'gerente' ? 'Vista de toda la cadena.' : me.role === 'supervisor' ? (me.region ? `Vista de tu región: ${me.region}.` : 'Aún no tienes región asignada; pide al administrador que te asigne una.') : (me.sucursal ? `Vista de tu sucursal: ${me.sucursal}.` : 'Aún no tienes sucursal asignada; pide al administrador que te asigne una.')}</p>
       <div className="grid2">
         <div className="stat"><b>{cols.length}</b><span>colaboradores</span></div>
         <div className="stat"><b>{avg}%</b><span>avance promedio</span></div>
@@ -162,7 +162,7 @@ function Admin({ me }: { me: UserDoc }) {
           <div className="tr head"><span>Persona</span><span>Total</span><span>M1</span><span>M2</span><span>M3</span><span>XP</span></div>
           {rows.map(({ s, pr, o, m1, m2, m3 }) => (
             <div className="tr" key={s.uid}>
-              <span><b>{s.name}</b><br /><span className="muted">{roleEs[s.role]}{s.region ? ` · ${s.region}` : ''} · 🔥 {pr.streak}</span></span>
+              <span><b>{s.name}</b><br /><span className="muted">{roleEs[s.role]}{s.region ? ` · ${s.region}` : ''}{s.sucursal ? ` · ${s.sucursal}` : ''} · 🔥 {pr.streak}</span></span>
               <span>{o}%</span><span>{m1}%</span><span>{m2}%</span><span>{m3}%</span><span>{pr.xp}</span>
             </div>
           ))}
@@ -175,7 +175,7 @@ function Admin({ me }: { me: UserDoc }) {
             <b>{s.name}</b> <span className="muted">{s.email}</span>
             <div className="bar" title="Total"><i style={{ width: `${o}%` }} /></div>
             <p className="muted">M1 Fundamentos {m1}% · M2 Familias {m2}% · M3 Casos {m3}% · Lecciones {pr.completed.length}</p>
-            {me.role === 'gerente' && s.uid !== me.uid && <RoleForm u={s} onSaved={() => setTick(t => t + 1)} />}
+            {me.role === 'admin' && s.uid !== me.uid && <RoleForm u={s} onSaved={() => setTick(t => t + 1)} />}
           </div>
         ))}
       </div>
@@ -186,19 +186,23 @@ function Admin({ me }: { me: UserDoc }) {
 function RoleForm({ u, onSaved }: { u: UserDoc; onSaved: () => void }) {
   const [role, setRole] = useState<StaffRole>(u.role);
   const [region, setRegion] = useState(u.region ?? '');
+  const [sucursal, setSucursal] = useState(u.sucursal ?? '');
   const [msg, setMsg] = useState('');
   return (
     <form style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} onSubmit={async e => {
       e.preventDefault(); setMsg('');
-      try { await updateUserRole(u.uid, role, region); setMsg('Guardado ✓'); onSaved(); }
+      try { await updateUserRole(u.uid, role, region, sucursal); setMsg('Guardado ✓'); onSaved(); }
       catch { setMsg('No se pudo guardar.'); }
     }}>
       <select value={role} onChange={e => setRole(e.target.value as StaffRole)}>
         <option value="colaborador">Colaborador</option>
+        <option value="encargado">Encargado de sucursal</option>
         <option value="supervisor">Supervisor</option>
         <option value="gerente">Gerente</option>
+        <option value="admin">Administrador del sistema</option>
       </select>
       <input placeholder="Región (ej. Coatepeque)" value={region} onChange={e => setRegion(e.target.value)} />
+      <input placeholder="Sucursal (ej. Coatepeque Centro)" value={sucursal} onChange={e => setSucursal(e.target.value)} />
       <button className="btn small">Guardar</button>
       {msg && <span className="muted">{msg}</span>}
     </form>

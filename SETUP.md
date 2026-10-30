@@ -30,16 +30,23 @@ VITE_FIREBASE_APP_ID=...             (appId)
 
 Estos valores web no son contraseñas secretas (la seguridad la dan las reglas), pero `.env` no se sube al repositorio.
 
-## 6. El primer gerente
-La **primera persona que se registra** en la app queda automáticamente como **gerente** (Manolo debe registrarse primero). Todas las demás entran como **colaborador**.
+## 6. Jerarquía de roles
+| Rol | Etiqueta | Qué ve |
+|---|---|---|
+| `admin` | Administrador del sistema | Toda la cadena. **Único** que puede cambiar rol, región y sucursal de otros. |
+| `gerente` | Gerente | Toda la cadena (solo consulta). |
+| `supervisor` | Supervisor | Personas con su misma **región** (y a sí mismo). |
+| `encargado` | Encargado de sucursal | Personas con su misma **sucursal** (y a sí mismo). |
+| `colaborador` | Colaborador | Solo su propio avance. |
 
-Si hiciera falta hacerlo a mano: **Firestore → colección `users` → tu documento → campo `role` = `gerente`**.
+**La primera persona que se registra queda como administrador del sistema** (Manolo debe registrarse primero). Todos los demás entran como colaborador.
 
-## 7. Asignar supervisores y regiones
-Como gerente: **Panel admin → Detalle por persona** → elige el rol y escribe la región (por ejemplo `Coatepeque`) → Guardar.
-- Supervisor: ve solo a las personas con su misma región.
-- Gerente: ve toda la cadena.
-- Escribe la región exactamente igual para todos (mismas mayúsculas y tildes).
+**Importante:** si ya te registraste con la versión anterior y quedaste como `gerente`, entra a **Firestore → colección `users` → tu documento** y cambia el campo `role` a `admin`.
+
+## 7. Asignar roles, regiones y sucursales
+Como administrador: **Panel admin → Detalle por persona** → elige el rol, escribe la región (ej. `Quetzaltenango`) y/o la sucursal (ej. `Coatepeque Centro`) → Guardar.
+- Supervisor necesita **región**; encargado necesita **sucursal**; a los colaboradores asígnales ambas para que aparezcan con su supervisor y su encargado.
+- Escribe región y sucursal exactamente igual para todos (mismas mayúsculas y tildes).
 
 ## 8. Volver a publicar en GitHub Pages
 La configuración se incluye al compilar. Con el `.env` lleno, se vuelve a ejecutar `npm run build` y se publica la carpeta `dist` en GitHub Pages. Sin `.env`, la app muestra "Falta configurar Firebase".

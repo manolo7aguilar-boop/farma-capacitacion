@@ -8,7 +8,7 @@ export interface Progress {
   completedModules: number[];
 }
 
-export type StaffRole = 'colaborador' | 'supervisor' | 'gerente';
+export type StaffRole = 'colaborador' | 'encargado' | 'supervisor' | 'gerente' | 'admin';
 
 export const today = () => new Date().toLocaleDateString('en-CA');
 
@@ -38,7 +38,7 @@ export function bumpStreak(p: Progress): Progress {
 }
 
 export function isAdminRole(role?: StaffRole) {
-  return role === 'gerente' || role === 'supervisor';
+  return role === 'admin' || role === 'gerente' || role === 'supervisor' || role === 'encargado';
 }
 
 export const initProgress: Progress = {

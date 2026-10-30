@@ -3,11 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function myRole() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
-    function isGerente() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && myRole() == 'gerente'; }
-    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && myRole() in ['gerente', 'supervisor']; }
+    function isSysAdmin() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && myRole() == 'admin'; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && myRole() in ['admin', 'gerente', 'supervisor', 'encargado']; }
     function bootPath() { return /databases/$(database)/documents/meta/bootstrap; }
 
-    // Marca única: el primer usuario registrado se vuelve gerente.
+    // Marca única: el primer usuario registrado se vuelve administrador del sistema.
     match /meta/bootstrap {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
@@ -18,15 +18,16 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == userId
         && request.resource.data.region == null
+        && request.resource.data.get('sucursal', null) == null
         && (request.resource.data.role == 'colaborador'
-            || (request.resource.data.role == 'gerente'
+            || (request.resource.data.role == 'admin'
                 && !exists(bootPath())
                 && getAfter(bootPath()).data.uid == request.auth.uid));
-      // El usuario solo puede cambiar su nombre; el gerente puede cambiar rol y región.
-      allow update: if isGerente()
+      // El usuario solo puede cambiar su nombre; solo el administrador cambia rol, región y sucursal.
+      allow update: if isSysAdmin()
         || (signedIn() && request.auth.uid == userId
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']));
-      allow delete: if isGerente();
+      allow delete: if isSysAdmin();
     }
 
     match /progress/{userId} {
