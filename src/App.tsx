@@ -126,6 +126,35 @@ function AuthScreen() {
 }
 
 function Admin({ me }: { me: UserDoc }) {
+  const [view, setView] = useState<'admin' | 'gerente' | 'supervisor'>('admin');
+  const [reg, setReg] = useState('');
+  const [regions, setRegions] = useState<Region[]>([]);
+  useEffect(() => { if (me.role === 'admin') loadRegions().then(setRegions).catch(() => setRegions([])); }, [me.role, view]);
+  if (me.role !== 'admin') return <AdminPanel me={me} />;
+  const viewer: UserDoc = view === 'admin' ? me : { ...me, uid: '__preview__', role: view, region: view === 'supervisor' ? (reg || null) : null, sucursal: null };
+  const tab = (v: typeof view, label: string) => (
+    <button className={`btn small${view === v ? '' : ' ghost'}`} type="button" onClick={() => setView(v)}>{label}</button>
+  );
+  return (
+    <>
+      <div className="card-stack" style={{ paddingBottom: 0 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {tab('admin', 'Mi vista (admin)')}{tab('gerente', 'Vista gerente')}{tab('supervisor', 'Vista supervisor')}
+          {view === 'supervisor' && (
+            <select value={reg} onChange={e => setReg(e.target.value)}>
+              <option value="">— Elige región —</option>
+              {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+            </select>
+          )}
+        </div>
+        {view !== 'admin' && <p className="feedback">👁️ Vista previa: así lo ve {view === 'gerente' ? 'la gerente de ventas' : `el supervisor${reg ? ` de ${reg}` : ''}`}. Solo lectura.</p>}
+      </div>
+      <AdminPanel key={view + reg} me={viewer} />
+    </>
+  );
+}
+
+function AdminPanel({ me }: { me: UserDoc }) {
   const [team, setTeam] = useState<TeamRow[] | null>(null);
   const [err, setErr] = useState('');
   const [tick, setTick] = useState(0);
