@@ -30,6 +30,14 @@ service cloud.firestore {
       allow delete: if isSysAdmin();
     }
 
+    // Regiones (máximo 3 en la app). Todos leen; solo el administrador del sistema escribe.
+    match /regions/{regionId} {
+      allow read: if signedIn();
+      allow create, update: if isSysAdmin() && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60;
+      allow delete: if isSysAdmin();
+    }
+
     match /progress/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
       allow write: if signedIn() && request.auth.uid == userId;

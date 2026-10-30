@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, type User,
 } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, where, writeBatch, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { initProgress, type Progress, type StaffRole } from './store';
 
@@ -130,3 +130,36 @@ export async function loadTeam(me: UserDoc): Promise<TeamRow[]> {
 const clean = (v: string | null) => v && v.trim() ? v.trim() : null;
 export const updateUserRole = (uid: string, role: StaffRole, region: string | null, sucursal: string | null) =>
   updateDoc(doc(db!, 'users', uid), { role, region: clean(region), sucursal: clean(sucursal) });
+
+export interface Region { id: string; name: string }
+export const MAX_REGIONS = 3;
+export async function loadRegions(): Promise<Region[]> {
+  const s = await getDocs(collection(db!, 'regions'));
+  return s.docs.map(d => ({ id: d.id, name: String(d.data().name ?? '') }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+}
+export const createRegion = (name: string) => addDoc(collection(db!, 'regions'), { name: name.trim(), createdAt: serverTimestamp() });
+/** Rename region and move users that had the old name. */
+export async function renameRegion(r: Region, name: string) {
+  const b = writeBatch(db!);
+  b.update(doc(db!, 'regions', r.id), { name: name.trim() });
+  const us = await getDocs(query(collection(db!, 'users'), where('region', '==', r.name)));
+  us.docs.forEach(u => b.update(u.ref, { region: name.trim() }));
+  await b.commit();
+}
+/** Delete region and clear it from users. */
+export async function deleteRegion(r: Region) {
+  const b = writeBatch(db!);
+  const us = await getDocs(query(collection(db!, 'users'), where('region', '==', r.name)));
+  us.docs.forEach(u => b.update(u.ref, { region: null }));
+  b.delete(doc(db!, 'regions', r.id));
+  await b.commit();
+}
+/** Make uid the single supervisor of region; any previous supervisor of that region loses the region. */
+export async function assignSupervisor(uid: string, region: string, team: UserDoc[], sucursal: string | null) {
+  const b = writeBatch(db!);
+  team.filter(u => u.role === 'supervisor' && u.region === region && u.uid !== uid)
+    .forEach(u => b.update(doc(db!, 'users', u.uid), { region: null }));
+  b.update(doc(db!, 'users', uid), { role: 'supervisor', region, sucursal: clean(sucursal) });
+  await b.commit();
+}

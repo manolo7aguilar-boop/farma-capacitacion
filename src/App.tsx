@@ -4,7 +4,7 @@ import { m1Lessons } from './m1';
 import { m3Lessons } from './m3';
 import { bumpStreak, isAdminRole, modulePct, overallPct, type Progress, type StaffRole } from './store';
 import { firebaseConfigured } from './firebase';
-import { useCloud, login, logout, register, authErrorEs, loadTeam, updateUserRole, type UserDoc, type TeamRow } from './cloud';
+import { useCloud, login, logout, register, authErrorEs, loadTeam, updateUserRole, loadRegions, createRegion, renameRegion, deleteRegion, assignSupervisor, MAX_REGIONS, type UserDoc, type TeamRow, type Region } from './cloud';
 
 type View = { s: 'home' } | { s: 'path' } | { s: 'path1' } | { s: 'path3' } | { s: 'lesson'; id: number };
 const pathFor = (id: number) => id >= 200 ? 'path3' as const : id > 100 ? 'path1' as const : 'path' as const;
@@ -129,6 +129,8 @@ function Admin({ me }: { me: UserDoc }) {
   const [team, setTeam] = useState<TeamRow[] | null>(null);
   const [err, setErr] = useState('');
   const [tick, setTick] = useState(0);
+  const [regions, setRegions] = useState<Region[]>([]);
+  useEffect(() => { loadRegions().then(setRegions).catch(() => setRegions([])); }, [tick]);
   useEffect(() => { loadTeam(me).then(setTeam).catch(() => setErr('No se pudo cargar el equipo. Revisa las reglas de Firestore.')); }, [me, tick]);
   if (err) return <main className="card-stack"><p className="feedback bad">{err}</p></main>;
   if (!team) return <main className="card-stack center"><p className="muted">Cargando equipo…</p></main>;
@@ -156,6 +158,9 @@ function Admin({ me }: { me: UserDoc }) {
       </div>
       <div className="stat"><b>{badges.c}</b><span>insignia Casos</span></div>
       <button className="btn small ghost" onClick={() => setTick(t => t + 1)}>Actualizar</button>
+      {(me.role === 'admin' || me.role === 'gerente') && (
+        <Regions me={me} regions={regions} rows={rows} team={team.map(t => t.user)} onSaved={() => setTick(t => t + 1)} />
+      )}
       <div className="card">
         <h2>Ranking del equipo</h2>
         <div className="table">
@@ -175,7 +180,7 @@ function Admin({ me }: { me: UserDoc }) {
             <b>{s.name}</b> <span className="muted">{s.email}</span>
             <div className="bar" title="Total"><i style={{ width: `${o}%` }} /></div>
             <p className="muted">M1 Fundamentos {m1}% · M2 Familias {m2}% · M3 Casos {m3}% · Lecciones {pr.completed.length}</p>
-            {me.role === 'admin' && s.uid !== me.uid && <RoleForm u={s} onSaved={() => setTick(t => t + 1)} />}
+            {me.role === 'admin' && s.uid !== me.uid && <RoleForm u={s} regions={regions} team={team.map(t => t.user)} onSaved={() => setTick(t => t + 1)} />}
           </div>
         ))}
       </div>
@@ -183,16 +188,101 @@ function Admin({ me }: { me: UserDoc }) {
   );
 }
 
-function RoleForm({ u, onSaved }: { u: UserDoc; onSaved: () => void }) {
+type AdminRow = { s: UserDoc; pr: Progress; o: number };
+
+function Regions({ me, regions, rows, team, onSaved }: { me: UserDoc; regions: Region[]; rows: AdminRow[]; team: UserDoc[]; onSaved: () => void }) {
+  const isSys = me.role === 'admin';
+  const [newName, setNewName] = useState('');
+  const [edit, setEdit] = useState<Record<string, string>>({});
+  const [selUser, setSelUser] = useState('');
+  const [selRegion, setSelRegion] = useState('');
+  const [msg, setMsg] = useState('');
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
+    setMsg('');
+    try { await fn(); setMsg(ok); onSaved(); } catch { setMsg('No se pudo guardar. Revisa las reglas de Firestore.'); }
+  };
+  const dup = (n: string, id?: string) => regions.some(r => r.id !== id && r.name.toLowerCase() === n.trim().toLowerCase());
+  return (
+    <div className="card">
+      <h2>Regiones y supervisores</h2>
+      <p className="muted">Cada región tiene un solo supervisor (máximo {MAX_REGIONS} regiones).</p>
+      {regions.length === 0 && <p className="muted">Aún no hay regiones creadas.</p>}
+      {regions.map(r => {
+        const sup = rows.find(x => x.s.role === 'supervisor' && x.s.region === r.name);
+        const members = rows.filter(x => x.s.region === r.name && x.s.role !== 'supervisor').length;
+        return (
+          <div key={r.id} className="person">
+            {isSys ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input value={edit[r.id] ?? r.name} onChange={e => setEdit({ ...edit, [r.id]: e.target.value })} />
+                <button className="btn small" type="button" disabled={!(edit[r.id] ?? '').trim() || edit[r.id] === r.name}
+                  onClick={() => dup(edit[r.id], r.id) ? setMsg('Ya existe una región con ese nombre.') : run(() => renameRegion(r, edit[r.id]), 'Región renombrada ✓')}>Renombrar</button>
+                <button className="btn small ghost" type="button"
+                  onClick={() => confirm(`¿Eliminar la región "${r.name}"? Las personas asignadas quedarán sin región.`) && run(() => deleteRegion(r), 'Región eliminada ✓')}>Eliminar</button>
+              </div>
+            ) : <b>📍 {r.name}</b>}
+            {sup ? (
+              <p>Supervisor: <b>{sup.s.name}</b> <span className="muted">{sup.s.email} · avance {sup.o}% · {sup.pr.xp} XP · 🔥 {sup.pr.streak}</span></p>
+            ) : <p className="muted">Sin supervisor asignado.</p>}
+            <p className="muted">{members} persona(s) más en esta región.</p>
+          </div>
+        );
+      })}
+      {isSys && regions.length < MAX_REGIONS && (
+        <form style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onSubmit={e => {
+          e.preventDefault();
+          if (!newName.trim()) return;
+          if (dup(newName)) { setMsg('Ya existe una región con ese nombre.'); return; }
+          run(() => createRegion(newName), 'Región creada ✓').then(() => setNewName(''));
+        }}>
+          <input placeholder={`Región ${regions.length + 1}`} value={newName} onChange={e => setNewName(e.target.value)} />
+          <button className="btn small">Crear región</button>
+        </form>
+      )}
+      {isSys && regions.length > 0 && (
+        <form style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }} onSubmit={e => {
+          e.preventDefault();
+          if (!selUser || !selRegion) { setMsg('Elige persona y región.'); return; }
+          const u = team.find(t => t.uid === selUser);
+          const prev = team.find(t => t.role === 'supervisor' && t.region === selRegion && t.uid !== selUser);
+          if (prev && !confirm(`${prev.name} es el supervisor actual de ${selRegion}. ¿Reemplazarlo?`)) return;
+          run(() => assignSupervisor(selUser, selRegion, team, u?.sucursal ?? null), 'Supervisor asignado ✓');
+        }}>
+          <b style={{ width: '100%' }}>Asignar supervisor</b>
+          <select value={selUser} onChange={e => setSelUser(e.target.value)}>
+            <option value="">— Persona registrada —</option>
+            {team.filter(t => t.role !== 'admin' && t.role !== 'gerente').map(t => <option key={t.uid} value={t.uid}>{t.name} ({t.email})</option>)}
+          </select>
+          <select value={selRegion} onChange={e => setSelRegion(e.target.value)}>
+            <option value="">— Región —</option>
+            {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+          </select>
+          <button className="btn small">Asignar</button>
+        </form>
+      )}
+      {msg && <p className="muted">{msg}</p>}
+    </div>
+  );
+}
+
+function RoleForm({ u, regions, team, onSaved }: { u: UserDoc; regions: Region[]; team: UserDoc[]; onSaved: () => void }) {
   const [role, setRole] = useState<StaffRole>(u.role);
   const [region, setRegion] = useState(u.region ?? '');
   const [sucursal, setSucursal] = useState(u.sucursal ?? '');
   const [msg, setMsg] = useState('');
+  const known = regions.some(r => r.name === region);
   return (
     <form style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} onSubmit={async e => {
       e.preventDefault(); setMsg('');
-      try { await updateUserRole(u.uid, role, region, sucursal); setMsg('Guardado ✓'); onSaved(); }
-      catch { setMsg('No se pudo guardar.'); }
+      if (role === 'supervisor' && !region) { setMsg('Un supervisor necesita región.'); return; }
+      try {
+        if (role === 'supervisor') {
+          const prev = team.find(t => t.role === 'supervisor' && t.region === region && t.uid !== u.uid);
+          if (prev && !confirm(`${prev.name} es el supervisor actual de ${region}. ¿Reemplazarlo?`)) return;
+          await assignSupervisor(u.uid, region, team, sucursal);
+        } else await updateUserRole(u.uid, role, region || null, sucursal);
+        setMsg('Guardado ✓'); onSaved();
+      } catch { setMsg('No se pudo guardar.'); }
     }}>
       <select value={role} onChange={e => setRole(e.target.value as StaffRole)}>
         <option value="colaborador">Colaborador</option>
@@ -201,7 +291,11 @@ function RoleForm({ u, onSaved }: { u: UserDoc; onSaved: () => void }) {
         <option value="gerente">Gerente de ventas</option>
         <option value="admin">Administrador del sistema</option>
       </select>
-      <input placeholder="Región (ej. Coatepeque)" value={region} onChange={e => setRegion(e.target.value)} />
+      <select value={region} onChange={e => setRegion(e.target.value)}>
+        <option value="">{regions.length ? 'Sin región' : 'Crea regiones primero'}</option>
+        {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+        {region && !known && <option value={region}>{region} (antigua)</option>}
+      </select>
       <input placeholder="Sucursal (ej. Coatepeque Centro)" value={sucursal} onChange={e => setSucursal(e.target.value)} />
       <button className="btn small">Guardar</button>
       {msg && <span className="muted">{msg}</span>}

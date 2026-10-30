@@ -50,3 +50,8 @@ Como administrador: **Panel admin → Detalle por persona** → elige el rol, es
 
 ## 8. Volver a publicar en GitHub Pages
 La configuración se incluye al compilar. Con el `.env` lleno, se vuelve a ejecutar `npm run build` y se publica la carpeta `dist` en GitHub Pages. Sin `.env`, la app muestra "Falta configurar Firebase".
+
+## Regiones y supervisores
+Las reglas incluyen la colección `regions` (todos los usuarios con sesión la leen; solo el administrador del sistema crea, renombra o elimina). Si actualizaste desde una versión anterior, vuelve a pegar `firestore.rules` en **Firestore → Reglas** y presiona **Publicar**.
+
+En el **Panel administrador → Regiones y supervisores**, el administrador crea hasta 3 regiones y asigna un supervisor por región (elige la persona registrada y la región). La gerente de ventas ve las regiones y sus supervisores, pero no puede editarlos.
