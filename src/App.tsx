@@ -1,48 +1,54 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { lessons, allLessons, type Exercise } from './data';
 import { m1Lessons } from './m1';
 import { m3Lessons } from './m3';
-import { useTeam, bumpStreak, isAdminRole, modulePct, overallPct, type Progress, type Staff } from './store';
+import { bumpStreak, isAdminRole, modulePct, overallPct, type Progress, type StaffRole } from './store';
+import { firebaseConfigured } from './firebase';
+import { useCloud, login, logout, register, authErrorEs, loadTeam, updateUserRole, type UserDoc, type TeamRow } from './cloud';
 
 type View = { s: 'home' } | { s: 'path' } | { s: 'path1' } | { s: 'path3' } | { s: 'lesson'; id: number };
 const pathFor = (id: number) => id >= 200 ? 'path3' as const : id > 100 ? 'path1' as const : 'path' as const;
 const asset = (f: string) => `${import.meta.env.BASE_URL}${f}`;
+const roleEs: Record<StaffRole, string> = { colaborador: 'colaborador', supervisor: 'supervisor', gerente: 'gerente' };
 
 const md = (t: string) => t.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/).map((x, i) =>
   x.startsWith('**') ? <strong key={i}>{x.slice(2, -2)}</strong> : x.startsWith('*') ? <em key={i}>{x.slice(1, -1)}</em> : x);
 
 export default function App() {
-  const { team, setTeam, active, progress: p, setProgress: setP } = useTeam();
+  if (!firebaseConfigured) {
+    return (
+      <div className="app"><main className="card-stack center">
+        <h1>Falta configurar Firebase</h1>
+        <p className="muted">Esta versión guarda las cuentas y el avance en la nube. Copia <b>.env.example</b> a <b>.env</b>, llena los datos de tu proyecto Firebase y vuelve a compilar. Revisa <b>SETUP.md</b>.</p>
+      </main></div>
+    );
+  }
+  return <CloudApp />;
+}
+
+function CloudApp() {
+  const { authReady, authUser, me, progress: p, setProgress: setP, error, setError } = useCloud();
   const [view, setView] = useState<View>({ s: 'home' });
   const [adminOk, setAdminOk] = useState(false);
   const current = allLessons.find(l => !p.completed.includes(l.id)) ?? allLessons[allLessons.length - 1];
 
-  if (!active) {
-    return (
-      <div className="app">
-        <Gate team={team} setTeam={setTeam} />
-      </div>
-    );
-  }
+  if (!authReady) return <div className="app"><main className="card-stack center"><p className="muted">Cargando…</p></main></div>;
+  if (!authUser) return <div className="app"><AuthScreen /></div>;
+  if (!me) return <div className="app"><main className="card-stack center"><p className="muted">{error || 'Cargando tu perfil…'}</p>
+    <button className="btn ghost" onClick={() => logout()}>Salir</button></main></div>;
 
-  const showAdmin = adminOk && isAdminRole(active.role);
+  const showAdmin = adminOk && isAdminRole(me.role);
 
   return (
     <div className="app">
       {view.s !== 'lesson' && (
-        <Header
-          p={p}
-          setP={setP}
-          onHome={() => setView({ s: 'home' })}
-          active={active}
-          adminOk={adminOk}
-          onAdmin={() => setAdminOk(true)}
-          onExitAdmin={() => setAdminOk(false)}
-          onLogout={() => { setAdminOk(false); setTeam(t => ({ ...t, activeStaffId: null })); setView({ s: 'home' }); }}
-        />
+        <Header p={p} onHome={() => setView({ s: 'home' })} me={me} adminOk={adminOk}
+          onAdmin={() => setAdminOk(true)} onExitAdmin={() => setAdminOk(false)}
+          onLogout={() => { setAdminOk(false); setView({ s: 'home' }); logout(); }} />
       )}
+      {error && <p className="feedback bad" onClick={() => setError('')}>{error}</p>}
       {showAdmin ? (
-        <Admin team={team} setTeam={setTeam} />
+        <Admin me={me} />
       ) : (
         <>
           {view.s === 'home' && <Home p={p} current={current.id} go={setView} />}
@@ -58,12 +64,9 @@ export default function App() {
   );
 }
 
-function Header({ p, onHome, active, adminOk, onAdmin, onExitAdmin, onLogout }: {
-  p: Progress; setP: (f: (o: Progress) => Progress) => void; onHome: () => void;
-  active: Staff; adminOk: boolean; onAdmin: () => void; onExitAdmin: () => void; onLogout: () => void;
+function Header({ p, onHome, me, adminOk, onAdmin, onExitAdmin, onLogout }: {
+  p: Progress; onHome: () => void; me: UserDoc; adminOk: boolean; onAdmin: () => void; onExitAdmin: () => void; onLogout: () => void;
 }) {
-  const [pin, setPin] = useState('');
-  const [askPin, setAskPin] = useState(false);
   return (
     <header className="top">
       <button className="brand" onClick={() => { onExitAdmin(); onHome(); }}>
@@ -72,32 +75,31 @@ function Header({ p, onHome, active, adminOk, onAdmin, onExitAdmin, onLogout }: 
       </button>
       <div className="stats"><span title="Racha">🔥 {p.streak}</span><span title="XP">⭐ {p.xp} XP</span></div>
       <div className="profile">
-        <span>👤 {active.name} · {active.role}</span>
-        {isAdminRole(active.role) && (
-          adminOk
-            ? <button className="btn small ghost" onClick={onExitAdmin}>Vista colaborador</button>
-            : askPin
-              ? <form onSubmit={e => { e.preventDefault(); onAdmin(); setAskPin(false); setPin(''); }} style={{ display: 'flex', gap: 8 }}>
-                  <input type="password" inputMode="numeric" placeholder="PIN admin" value={pin} onChange={e => setPin(e.target.value)} />
-                  <button className="btn small" type="submit" onClick={e => {
-                    e.preventDefault();
-                    const teamPin = JSON.parse(localStorage.getItem('farma-team-v2') || '{}').adminPin || '2468';
-                    if (pin === teamPin) { onAdmin(); setAskPin(false); setPin(''); }
-                    else alert('PIN incorrecto');
-                  }}>Entrar</button>
-                </form>
-              : <button className="btn small" onClick={() => setAskPin(true)}>Panel admin</button>
-        )}
+        <span>👤 {me.name} · {roleEs[me.role]}{me.region ? ` · ${me.region}` : ''}</span>
+        {isAdminRole(me.role) && (adminOk
+          ? <button className="btn small ghost" onClick={onExitAdmin}>Vista colaborador</button>
+          : <button className="btn small" onClick={onAdmin}>Panel admin</button>)}
         <button className="btn small ghost" onClick={onLogout}>Salir</button>
       </div>
     </header>
   );
 }
 
-function Gate({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; setTeam: ReturnType<typeof useTeam>['setTeam'] }) {
+function AuthScreen() {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
-  const cols = team.staff.filter(s => s.role === 'colaborador');
-  const admins = team.staff.filter(s => isAdminRole(s.role));
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setErr('');
+    if (mode === 'register' && !name.trim()) { setErr('Escribe tu nombre.'); return; }
+    setBusy(true);
+    try { mode === 'login' ? await login(email, pass) : await register(name, email, pass); }
+    catch (x) { setErr(authErrorEs(x)); }
+    finally { setBusy(false); }
+  };
   return (
     <main className="card-stack">
       <div className="gate-logos">
@@ -105,69 +107,45 @@ function Gate({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; set
         <img className="logo-main" src={asset("logo-farmatodo-v2.jpg")} alt="Farmatodo Farmacias" />
       </div>
       <h1>Capacitación Farmatodo</h1>
-      <p className="muted">Elige tu perfil para guardar el avance. Gerente y supervisor pueden abrir el panel de administración con PIN.</p>
+      <p className="muted">{mode === 'login' ? 'Inicia sesión para continuar con tu avance.' : 'Crea tu cuenta. Tu avance se guarda en la nube.'}</p>
       <div className="card">
-        <h2>Colaboradores</h2>
-        {cols.map(s => (
-          <button key={s.id} className="btn ghost" style={{ width: '100%' }} onClick={() => setTeam(t => ({ ...t, activeStaffId: s.id }))}>
-            {s.name}
-          </button>
-        ))}
-      </div>
-      <div className="card">
-        <h2>Gerente / supervisor</h2>
-        {admins.map(s => (
-          <button key={s.id} className="btn ghost" style={{ width: '100%' }} onClick={() => setTeam(t => ({ ...t, activeStaffId: s.id }))}>
-            {s.name} ({s.role})
-          </button>
-        ))}
-      </div>
-      <div className="card">
-        <h2>Nuevo colaborador</h2>
-        <form onSubmit={e => {
-          e.preventDefault();
-          const n = name.trim();
-          if (!n) return;
-          const id = 'u-' + Date.now();
-          setTeam(t => ({
-            ...t,
-            staff: [...t.staff, { id, name: n, role: 'colaborador' }],
-            byStaff: { ...t.byStaff, [id]: { name: n, nameSet: true, xp: 0, completed: [], streak: 0, lastDay: '', completedModules: [] } },
-            activeStaffId: id,
-          }));
-        }}>
-          <input placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} />
-          <button className="btn" style={{ marginTop: 8, width: '100%' }}>Entrar</button>
+        <h2>{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</h2>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {mode === 'register' && <input placeholder="Nombre completo" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />}
+          <input type="email" placeholder="Correo" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+          <input type="password" placeholder="Contraseña (mín. 6 caracteres)" value={pass} onChange={e => setPass(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+          {err && <p className="feedback bad">{err}</p>}
+          <button className="btn" disabled={busy}>{busy ? 'Espera…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}</button>
         </form>
+        <button className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => { setErr(''); setMode(mode === 'login' ? 'register' : 'login'); }}>
+          {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+        </button>
       </div>
-      <p className="muted">PIN admin por defecto: <b>2468</b> (cámbialo en el panel).</p>
     </main>
   );
 }
 
-function Admin({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; setTeam: ReturnType<typeof useTeam>['setTeam'] }) {
-  const cols = team.staff.filter(s => s.role === 'colaborador');
-  const rows = cols.map(s => {
-    const pr = team.byStaff[s.id] ?? { completed: [] as number[], xp: 0, streak: 0, completedModules: [] as number[], name: s.name, nameSet: true, lastDay: '' };
-    return {
-      s, pr,
-      o: overallPct(pr.completed),
-      m1: modulePct(pr.completed, 1),
-      m2: modulePct(pr.completed, 2),
-      m3: modulePct(pr.completed, 3),
-    };
-  }).sort((a, b) => b.o - a.o);
-  const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.o, 0) / rows.length) : 0;
+function Admin({ me }: { me: UserDoc }) {
+  const [team, setTeam] = useState<TeamRow[] | null>(null);
+  const [err, setErr] = useState('');
+  const [tick, setTick] = useState(0);
+  useEffect(() => { loadTeam(me).then(setTeam).catch(() => setErr('No se pudo cargar el equipo. Revisa las reglas de Firestore.')); }, [me, tick]);
+  if (err) return <main className="card-stack"><p className="feedback bad">{err}</p></main>;
+  if (!team) return <main className="card-stack center"><p className="muted">Cargando equipo…</p></main>;
+  const rows = team.map(({ user: s, progress: pr }) => ({
+    s, pr, o: overallPct(pr.completed), m1: modulePct(pr.completed, 1), m2: modulePct(pr.completed, 2), m3: modulePct(pr.completed, 3),
+  })).sort((a, b) => b.o - a.o || b.pr.xp - a.pr.xp);
+  const cols = rows.filter(r => r.s.role === 'colaborador');
+  const avg = cols.length ? Math.round(cols.reduce((a, r) => a + r.o, 0) / cols.length) : 0;
   const badges = {
     f: rows.filter(r => r.pr.completedModules.includes(0)).length,
     fam: rows.filter(r => r.pr.completedModules.includes(1)).length,
     c: rows.filter(r => r.pr.completedModules.includes(2)).length,
   };
-  const [pinDraft, setPinDraft] = useState(team.adminPin);
   return (
     <main className="card-stack admin">
       <h1>Panel administrador</h1>
-      <p className="muted">Solo gerente y supervisor. Resumen del equipo y avance por módulo.</p>
+      <p className="muted">{me.role === 'gerente' ? 'Vista de toda la cadena.' : me.region ? `Vista de tu región: ${me.region}.` : 'Aún no tienes región asignada; pide al gerente que te asigne una.'}</p>
       <div className="grid2">
         <div className="stat"><b>{cols.length}</b><span>colaboradores</span></div>
         <div className="stat"><b>{avg}%</b><span>avance promedio</span></div>
@@ -177,13 +155,14 @@ function Admin({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; se
         <div className="stat"><b>{badges.fam}</b><span>insignia Familias</span></div>
       </div>
       <div className="stat"><b>{badges.c}</b><span>insignia Casos</span></div>
+      <button className="btn small ghost" onClick={() => setTick(t => t + 1)}>Actualizar</button>
       <div className="card">
         <h2>Ranking del equipo</h2>
         <div className="table">
-          <div className="tr head"><span>Colaborador</span><span>Total</span><span>M1</span><span>M2</span><span>M3</span><span>XP</span></div>
+          <div className="tr head"><span>Persona</span><span>Total</span><span>M1</span><span>M2</span><span>M3</span><span>XP</span></div>
           {rows.map(({ s, pr, o, m1, m2, m3 }) => (
-            <div className="tr" key={s.id}>
-              <span><b>{s.name}</b><br /><span className="muted">🔥 {pr.streak} · ⭐ {pr.xp}</span></span>
+            <div className="tr" key={s.uid}>
+              <span><b>{s.name}</b><br /><span className="muted">{roleEs[s.role]}{s.region ? ` · ${s.region}` : ''} · 🔥 {pr.streak}</span></span>
               <span>{o}%</span><span>{m1}%</span><span>{m2}%</span><span>{m3}%</span><span>{pr.xp}</span>
             </div>
           ))}
@@ -192,21 +171,37 @@ function Admin({ team, setTeam }: { team: ReturnType<typeof useTeam>['team']; se
       <div className="card">
         <h2>Detalle por persona</h2>
         {rows.map(({ s, pr, o, m1, m2, m3 }) => (
-          <div key={s.id} className="person">
-            <b>{s.name}</b>
+          <div key={s.uid} className="person">
+            <b>{s.name}</b> <span className="muted">{s.email}</span>
             <div className="bar" title="Total"><i style={{ width: `${o}%` }} /></div>
             <p className="muted">M1 Fundamentos {m1}% · M2 Familias {m2}% · M3 Casos {m3}% · Lecciones {pr.completed.length}</p>
+            {me.role === 'gerente' && s.uid !== me.uid && <RoleForm u={s} onSaved={() => setTick(t => t + 1)} />}
           </div>
         ))}
       </div>
-      <div className="card">
-        <h2>PIN del panel</h2>
-        <form onSubmit={e => { e.preventDefault(); if (pinDraft.trim().length >= 4) setTeam(t => ({ ...t, adminPin: pinDraft.trim() })); }}>
-          <input value={pinDraft} onChange={e => setPinDraft(e.target.value)} inputMode="numeric" />
-          <button className="btn" style={{ marginTop: 8, width: '100%' }}>Guardar PIN</button>
-        </form>
-      </div>
     </main>
+  );
+}
+
+function RoleForm({ u, onSaved }: { u: UserDoc; onSaved: () => void }) {
+  const [role, setRole] = useState<StaffRole>(u.role);
+  const [region, setRegion] = useState(u.region ?? '');
+  const [msg, setMsg] = useState('');
+  return (
+    <form style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} onSubmit={async e => {
+      e.preventDefault(); setMsg('');
+      try { await updateUserRole(u.uid, role, region); setMsg('Guardado ✓'); onSaved(); }
+      catch { setMsg('No se pudo guardar.'); }
+    }}>
+      <select value={role} onChange={e => setRole(e.target.value as StaffRole)}>
+        <option value="colaborador">Colaborador</option>
+        <option value="supervisor">Supervisor</option>
+        <option value="gerente">Gerente</option>
+      </select>
+      <input placeholder="Región (ej. Coatepeque)" value={region} onChange={e => setRegion(e.target.value)} />
+      <button className="btn small">Guardar</button>
+      {msg && <span className="muted">{msg}</span>}
+    </form>
   );
 }
 
