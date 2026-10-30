@@ -9,7 +9,7 @@ import { useCloud, login, logout, register, authErrorEs, loadTeam, updateUserRol
 type View = { s: 'home' } | { s: 'path' } | { s: 'path1' } | { s: 'path3' } | { s: 'lesson'; id: number };
 const pathFor = (id: number) => id >= 200 ? 'path3' as const : id > 100 ? 'path1' as const : 'path' as const;
 const asset = (f: string) => `${import.meta.env.BASE_URL}${f}`;
-const roleEs: Record<StaffRole, string> = { admin: 'Administrador del sistema', gerente: 'Gerente', supervisor: 'Supervisor', encargado: 'Encargado de sucursal', colaborador: 'Colaborador' };
+const roleEs: Record<StaffRole, string> = { admin: 'Administrador del sistema', gerente: 'Gerente de ventas', supervisor: 'Supervisor', encargado: 'Encargado de sucursal', colaborador: 'Colaborador' };
 
 const md = (t: string) => t.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/).map((x, i) =>
   x.startsWith('**') ? <strong key={i}>{x.slice(2, -2)}</strong> : x.startsWith('*') ? <em key={i}>{x.slice(1, -1)}</em> : x);
@@ -198,7 +198,7 @@ function RoleForm({ u, onSaved }: { u: UserDoc; onSaved: () => void }) {
         <option value="colaborador">Colaborador</option>
         <option value="encargado">Encargado de sucursal</option>
         <option value="supervisor">Supervisor</option>
-        <option value="gerente">Gerente</option>
+        <option value="gerente">Gerente de ventas</option>
         <option value="admin">Administrador del sistema</option>
       </select>
       <input placeholder="Región (ej. Coatepeque)" value={region} onChange={e => setRegion(e.target.value)} />

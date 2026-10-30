@@ -34,7 +34,7 @@ Estos valores web no son contraseñas secretas (la seguridad la dan las reglas),
 | Rol | Etiqueta | Qué ve |
 |---|---|---|
 | `admin` | Administrador del sistema | Toda la cadena. **Único** que puede cambiar rol, región y sucursal de otros. |
-| `gerente` | Gerente | Toda la cadena (solo consulta). |
+| `gerente` | Gerente de ventas | Toda la cadena (solo consulta). |
 | `supervisor` | Supervisor | Personas con su misma **región** (y a sí mismo). |
 | `encargado` | Encargado de sucursal | Personas con su misma **sucursal** (y a sí mismo). |
 | `colaborador` | Colaborador | Solo su propio avance. |
